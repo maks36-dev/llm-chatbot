@@ -1,0 +1,72 @@
+volumes: 
+  grafana_data: {}
+
+networks:
+  front-tier:
+  back-tier:
+
+services:
+  streamlit_app:
+    build:
+      context: ./app
+    container_name: streamlit_app
+    ports:
+      - "8501:8501"
+    depends_on:
+      - db
+      - elasticsearch
+    environment:
+      - AWS_ACCESS_KEY_ID=...
+      - AWS_SECRET_ACCESS_KEY=...
+      - AWS_DEFAULT_REGION=...
+    networks:
+      - back-tier
+      - front-tier
+
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: example
+    ports:
+      - "5432:5432"
+    networks:
+      - back-tier
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - back-tier
+      - front-tier  
+
+  grafana:
+    image: grafana/grafana
+    user: "472"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/grafana_datasources.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
+      - ./grafana/grafana_dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro
+      - ./grafana/dashboards:/opt/grafana/dashboards
+
+    networks:
+      - back-tier
+      - front-tier
+    restart: always
+
+  elasticsearch:
+    build: ./elasticsearch
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    mem_limit: 4g
+    networks:
+      - back-tier
+      - front-tier 
